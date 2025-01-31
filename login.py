@@ -28,7 +28,9 @@ def fnet_login(driver, username, password):
     while attempt < MAX_RETRIES:
         try:
             logger.info(f"attempt {attempt + 1} of {MAX_RETRIES}: navigating to fnet login page...")
-            driver.get(os.getenv('LOGIN_URL'))
+
+            login_url = (os.getenv('LOGIN_URL'))
+            driver.get(login_url)
 
             # login flow
             logger.info("waiting for username field...")

@@ -1,4 +1,3 @@
-# Import required libraries for FTP operations, logging and env variables
 import os
 import logging
 import sys

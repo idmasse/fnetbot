@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 from utils.ftp_utils import connect_ftp, download_files, archive_files_on_ftp
 from utils.selenium_setup import get_driver
 from login import fnet_login
@@ -46,7 +47,7 @@ def place_orders():
                 if downloaded_files:
                     print(f"downloaded files: {downloaded_files}")
                     archive_files_on_ftp(ftp, downloaded_files)
-                    print(f'archived files on ftp: {downloaded_files}')
+                    # print(f'archived files on ftp: {downloaded_files}')
                 else:
                     print("no files downloaded")
             finally:
@@ -120,6 +121,8 @@ def place_orders():
                     try:
                         print(f"processing PO_num: {po_num}")
 
+                        oos_items = False #OOS flag
+
                         # add items to cart loop
                         for item in order["items"]:
                             sku = item["sku"]
@@ -132,6 +135,21 @@ def place_orders():
                             search_input.submit()
 
                             long_wait.until(EC.presence_of_element_located((By.ID, "brandTitle")))
+
+                            #if item is OOS, skip it, send an email and go to next PO (if there is one)
+                            try:
+                                oos_message = short_wait.until(EC.presence_of_element_located((By.ID, 'oos_message')))
+                                if oos_message.is_displayed():
+                                    print(f'SKU: {sku} is out of stock. Skipping order submission for PO: {po_num}.')
+                                    
+                                    subject = f'FNET Items OOS'
+                                    body = f'SKU: {sku} from PO: {po_num} in {file} is OOS.'
+                                    send_email(subject, body)
+
+                                    oos_items = True
+                                    break
+                            except NoSuchElementException:
+                                pass
 
                             if quantity > 1:
                                 print("inputting item quantity")
@@ -146,7 +164,11 @@ def place_orders():
                             time.sleep(1)
                             print(f"Added {quantity} of {sku} to cart.")
 
-                        print(f"done adding items for PO_num {po_num}")
+                        if oos_items:
+                            failed_orders.append((file, po_num, 'OOS items found, entire PO skipped'))
+                            continue
+
+                        print(f"done attempting to add items for PO_num {po_num}")
                         
                         # checkout process
                         print("navigating to checkout page")
@@ -218,7 +240,7 @@ def place_orders():
                         # submit order
                         print('submitting order')
                         submit_order_btn = short_wait_for_element(By.ID, "submitOrder")
-                        submit_order_btn.click()
+                        # submit_order_btn.click()
                         
                         # verify order confirmation
                         print("waiting for confirmation...")
@@ -263,11 +285,40 @@ def place_orders():
             except Exception as e:
                 print(f"failed to move {file}: {str(e)}")
 
+        # files_to_archive = []
+        # # determine which files were fully successful
+        # for file in downloaded_files:
+        #     if any(file == f for f, _, _ in failed_orders):
+        #         print(f"skipping FTP archiving for {file} due to failed orders.")
+        #     else:
+        #         files_to_archive.append(file)
+
+        # archive files locally
+        # for file in files_to_archive:
+        #     src = os.path.join(os.getenv('LOCAL_ORDERS_DIR'), file)
+        #     dst = os.path.join(archive_dir, file)
+        #     try:
+        #         shutil.move(src, dst)
+        #         print(f"moved {file} to local archive.")
+        #     except Exception as e:
+        #         print(f"failed to move {file}: {str(e)}")
+
+        # archive files on FTP only if they were fully successful
+        # ftp = connect_ftp()
+        # if ftp and files_to_archive:
+        #     try:
+        #         archive_files_on_ftp(ftp, files_to_archive)
+        #         print(f"archived files on FTP: {files_to_archive}")
+        #     finally:
+        #         ftp.quit()
+        #         print("FTP connection closed")
+
         # send summary email
-        print('sending email')
+        print('sending summary email')
         subject = "FNET Order Summary"
         successful_msg = ', '.join(f'{po_num} ({f})' for f, po_num in successful_orders) if successful_orders else "None"
-        failed_msg = ', '.join(f'{po_num} ({f}): {e}' for f, po_num, e in failed_orders) if failed_orders else "None"
+        # failed_msg = ', '.join(f'{po_num} ({f}): {e}' for f, po_num, e in failed_orders) if failed_orders else "None"
+        failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num in failed_orders) if failed_orders else "None"
 
         body = f"""
         Successful orders: {len(successful_orders)}

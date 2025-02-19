@@ -121,7 +121,7 @@ def place_orders():
                     try:
                         print(f"processing PO_num: {po_num}")
 
-                        oos_items = False #OOS flag
+                        # oos_items = False #OOS flag
 
                         # add items to cart loop
                         for item in order["items"]:
@@ -137,19 +137,19 @@ def place_orders():
                             long_wait.until(EC.presence_of_element_located((By.ID, "brandTitle")))
 
                             #if item is OOS, skip it, send an email and go to next PO (if there is one)
-                            try:
-                                oos_message = short_wait.until(EC.presence_of_element_located((By.ID, 'oos_message')))
-                                if oos_message.is_displayed():
-                                    print(f'SKU: {sku} is out of stock. Skipping order submission for PO: {po_num}.')
+                            # try:
+                            #     oos_message = short_wait.until(EC.presence_of_element_located((By.ID, 'oos_message')))
+                            #     if oos_message.is_displayed():
+                            #         print(f'SKU: {sku} is out of stock. Skipping order submission for PO: {po_num}.')
                                     
-                                    subject = f'FNET Items OOS'
-                                    body = f'SKU: {sku} from PO: {po_num} in {file} is OOS.'
-                                    send_email(subject, body)
+                            #         subject = f'FNET Items OOS'
+                            #         body = f'SKU: {sku} from PO: {po_num} in {file} is OOS.'
+                            #         send_email(subject, body)
 
-                                    oos_items = True
-                                    break
-                            except NoSuchElementException:
-                                pass
+                            #         oos_items = True
+                            #         break
+                            # except NoSuchElementException:
+                            #     pass
 
                             if quantity > 1:
                                 print("inputting item quantity")

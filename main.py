@@ -164,9 +164,9 @@ def place_orders():
                             time.sleep(1)
                             print(f"Added {quantity} of {sku} to cart.")
 
-                        if oos_items:
-                            failed_orders.append((file, po_num, 'OOS items found, entire PO skipped'))
-                            continue
+                        # if oos_items:
+                        #     failed_orders.append((file, po_num, 'OOS items found, entire PO skipped'))
+                        #     continue
 
                         print(f"done attempting to add items for PO_num {po_num}")
                         
@@ -240,7 +240,7 @@ def place_orders():
                         # submit order
                         print('submitting order')
                         submit_order_btn = short_wait_for_element(By.ID, "submitOrder")
-                        # submit_order_btn.click()
+                        submit_order_btn.click()
                         
                         # verify order confirmation
                         print("waiting for confirmation...")

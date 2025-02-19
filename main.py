@@ -224,18 +224,21 @@ def place_orders():
                         card_field.clear()
                         card_field.send_keys(os.getenv('CC_NUM'))
                         exit_iframe()
+                        time.sleep(1)
 
                         driver.switch_to.frame(iframes[1])
                         exp_field = short_wait_for_element(By.ID, "encryptedExpiryDate")
                         exp_field.clear()
                         exp_field.send_keys(os.getenv('CC_EXP_NUM'))
                         exit_iframe()
+                        time.sleep(1)
 
                         driver.switch_to.frame(iframes[2])
                         csv_field = short_wait_for_element(By.ID, "encryptedSecurityCode")
                         csv_field.clear()
                         csv_field.send_keys(os.getenv('CC_CSV'))
                         exit_iframe()
+                        time.sleep(1)
 
                         # submit order
                         print('submitting order')

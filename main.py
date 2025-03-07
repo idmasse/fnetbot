@@ -321,7 +321,9 @@ def place_orders():
         subject = "FNET Order Summary"
         successful_msg = ', '.join(f'{po_num} ({f})' for f, po_num in successful_orders) if successful_orders else "None"
         # failed_msg = ', '.join(f'{po_num} ({f}): {e}' for f, po_num, e in failed_orders) if failed_orders else "None"
-        failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num in failed_orders) if failed_orders else "None"
+        # failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num in failed_orders) if failed_orders else "None"
+        failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num, _ in failed_orders) if failed_orders else "None"
+
 
         body = f"""
         Successful orders: {len(successful_orders)}

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import cloudscraper
 import re
 import os
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,24 +37,58 @@ def scrape_tracking_info(order_number, scraper):
     return shipment_vendor, tracking_number
 
 # update sheets with fulfillment info
+# def update_sheet_with_tracking(sheet, scraper):
+#     rows = sheet.get_all_values()
+
+#     for i, row in enumerate(rows[1:], start=2):
+#         order_number = row[1].strip() if len(row) > 1 else ""  # col B (order number)
+#         shipment_vendor = row[2].strip() if len(row) > 2 else ""  # col C (carrier)
+#         tracking_number = row[3].strip() if len(row) > 3 else ""  # col D (tracking number)
+
+#         if order_number and not tracking_number:  # only if col B has an order number and D is blank
+#             print(f"processing order number: {order_number}")
+#             carrier, tracking_number = scrape_tracking_info(order_number, scraper)
+
+#             if tracking_number:
+#                 sheet.update_cell(i, 3, carrier)  # col C (carrrier)
+#                 sheet.update_cell(i, 4, tracking_number)  # col D (tracking number)
+#                 print(f"Updated row {i}: Carrier: {carrier}, Tracking Number: {tracking_number}")
+#             else:
+#                 print(f"No tracking number found for order: {order_number}")
+
 def update_sheet_with_tracking(sheet, scraper):
     rows = sheet.get_all_values()
 
+    batch_updates = []
+    row_indices = []
+    
     for i, row in enumerate(rows[1:], start=2):
         order_number = row[1].strip() if len(row) > 1 else ""  # col B (order number)
         shipment_vendor = row[2].strip() if len(row) > 2 else ""  # col C (carrier)
         tracking_number = row[3].strip() if len(row) > 3 else ""  # col D (tracking number)
-
+        
         if order_number and not tracking_number:  # only if col B has an order number and D is blank
             print(f"processing order number: {order_number}")
             carrier, tracking_number = scrape_tracking_info(order_number, scraper)
-
+            
             if tracking_number:
-                sheet.update_cell(i, 3, carrier)  # col C (carrrier)
-                sheet.update_cell(i, 4, tracking_number)  # col D (tracking number)
-                print(f"Updated row {i}: Carrier: {carrier}, Tracking Number: {tracking_number}")
+                # add to batch updates
+                row_indices.append(i)
+                batch_updates.append({'range': f'C{i}:D{i}', 'values': [[carrier, tracking_number]]})
+                print(f"Queued update for row {i}: Carrier: {carrier}, Tracking Number: {tracking_number}")
             else:
                 print(f"No tracking number found for order: {order_number}")
+    
+    #process batch updates in chunks to stay within quota limits
+    chunk_size = 10  # Adjust based on your quota limits
+    for i in range(0, len(batch_updates), chunk_size):
+        chunk = batch_updates[i:i+chunk_size]
+        if chunk:
+            # use batch_update for multiple updates at once
+            sheet.batch_update(chunk)
+            print(f"Processed batch update for rows: {row_indices[i:i+chunk_size]}")
+            time.sleep(1)  #delay to avoid rate limits
+
 
 def scrape_tracking():
     scraper = create_scraper_session()

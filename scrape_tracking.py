@@ -79,8 +79,8 @@ def update_sheet_with_tracking(sheet, scraper):
             else:
                 print(f"No tracking number found for order: {order_number}")
     
-    #process batch updates in chunks to stay within quota limits
-    chunk_size = 10  # Adjust based on your quota limits
+    #process batch updates in chunks to stay within googles quota limits
+    chunk_size = 10
     for i in range(0, len(batch_updates), chunk_size):
         chunk = batch_updates[i:i+chunk_size]
         if chunk:

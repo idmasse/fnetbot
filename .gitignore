@@ -1,0 +1,6 @@
+.env
+orders/
+venv/
+gtest.py
+__pycache__/
+utils/gsheet_creds.json

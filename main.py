@@ -203,6 +203,7 @@ def place_orders():
                         print('clicking continue to shipping button')
                         continue_to_shipping_btn = short_wait_for_element(By.ID, "shippingProceedButton")
                         continue_to_shipping_btn.click()
+                        time.sleep(2) # frequent fail point, adding wait
 
                         print('selecting dropship shipping option')
                         dropship_shipping_btn = driver.find_element(By.ID, "DSP")
@@ -216,6 +217,7 @@ def place_orders():
                         iframes = WebDriverWait(driver, 30).until(
                             EC.presence_of_all_elements_located((By.CLASS_NAME, "js-iframe"))
                         )
+                        time.sleep(2) #adding wait for slow site response point
 
                         # fill payment info
                         print('filling payment info')

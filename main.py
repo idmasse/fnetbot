@@ -130,6 +130,7 @@ def place_orders():
 
                             print(f"searching for sku {sku}")
                             search_input = long_wait_for_element(By.ID, "searchInput")
+                            time.sleep(2)
                             search_input.clear()
                             search_input.send_keys(sku)
                             search_input.submit()
@@ -159,7 +160,6 @@ def place_orders():
 
                             print('adding item to cart')
                             add_to_cart_button = short_wait_for_element(By.ID, "addBagButton")
-                            time.sleep(1)
                             add_to_cart_button.click()
                             time.sleep(1)
                             print(f"Added {quantity} of {sku} to cart.")

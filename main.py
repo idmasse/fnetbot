@@ -132,10 +132,14 @@ def place_orders():
                             search_input = long_wait_for_element(By.ID, "searchInput")
                             time.sleep(2)
                             search_input.clear()
+                            print('search input cleared')
                             search_input.send_keys(sku)
+                            print(f'sku: {sku} searched')
                             search_input.submit()
+                            print('search button clicked waiting for item page to load')
 
                             long_wait.until(EC.presence_of_element_located((By.ID, "brandTitle")))
+                            print('found item title')
 
                             #if item is OOS, skip it, send an email and go to next PO (if there is one)
                             # try:
@@ -203,6 +207,7 @@ def place_orders():
                         print('clicking continue to shipping button')
                         continue_to_shipping_btn = short_wait_for_element(By.ID, "shippingProceedButton")
                         continue_to_shipping_btn.click()
+
                         time.sleep(2) # frequent fail point, adding wait
 
                         print('selecting dropship shipping option')

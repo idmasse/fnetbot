@@ -48,7 +48,6 @@ def place_orders():
                 if downloaded_files:
                     print(f"downloaded files: {downloaded_files}")
                     archive_files_on_ftp(ftp, downloaded_files)
-                    # print(f'archived files on ftp: {downloaded_files}')
                 else:
                     print("no files downloaded")
             finally:
@@ -60,31 +59,6 @@ def place_orders():
         
         if not downloaded_files:
             print('no files to download. exiting')
-            return
-
-        driver = get_driver() #init selenium driver
-
-        # selenium shortcuts
-        short_wait = WebDriverWait(driver, 10)
-        long_wait = WebDriverWait(driver, 30)
-
-        def short_wait_for_element(by, value, short_wait=short_wait):
-            return short_wait.until(EC.element_to_be_clickable((by, value)))
-        
-        def long_wait_for_element(by, value, long_wait=long_wait):
-            return long_wait.until(EC.element_to_be_clickable((by, value)))
-        
-        def exit_iframe():
-            driver.switch_to.default_content()
-
-        # login
-        username = os.getenv("LOGIN_USERNAME")
-        password = os.getenv("LOGIN_PASSWORD")
-        login_success = fnet_login(driver, username, password)
-        
-        if not login_success:
-            print("login failed.")
-            driver.quit()
             return
 
         # process each file loop
@@ -117,177 +91,179 @@ def place_orders():
                         "quantity": int(row["Qty"])
                     })
 
-                # process each order loop
-                for po_num, order in grouped_orders.items():
-                    try:
-                        print(f"processing PO_num: {po_num}")
+                batch_size = 20
+                orders = list(grouped_orders.items())
 
-                        # oos_items = False #OOS flag
+                for i in range(0, len(orders), batch_size):
+                    driver = get_driver()
+                    
+                    username = os.getenv("LOGIN_USERNAME")
+                    password = os.getenv("LOGIN_PASSWORD")
+                    login_success = fnet_login(driver, username, password)
+                    if not login_success:
+                        driver.quit()
+                        continue
 
-                        # add items to cart loop
-                        for item in order["items"]:
-                            sku = item["sku"]
-                            quantity = item["quantity"]
+                    # selenium shortcuts
+                    short_wait = WebDriverWait(driver, 10)
+                    long_wait = WebDriverWait(driver, 30)
 
-                            print(f"searching for sku {sku}")
-                            search_input = long_wait_for_element(By.ID, "searchInput")
-                            time.sleep(2)
-                            search_input.clear()
-                            print('search input cleared')
-                            search_input.send_keys(sku)
-                            print(f'sku: {sku} searched')
-                            search_input.submit()
-                            print('search button clicked waiting for item page to load')
+                    def short_wait_for_element(by, value, short_wait=short_wait):
+                        return short_wait.until(EC.element_to_be_clickable((by, value)))
+                    
+                    def long_wait_for_element(by, value, long_wait=long_wait):
+                        return long_wait.until(EC.element_to_be_clickable((by, value)))
+                    
+                    def exit_iframe():
+                        driver.switch_to.default_content()
 
-                            long_wait.until(EC.presence_of_element_located((By.ID, "brandTitle")))
-                            print('found item title')
+                    # process each order loop
+                    for po_num, order in orders[i:i+batch_size]:
+                        try:
+                            print(f"processing PO_num: {po_num}")
 
-                            #if item is OOS, skip it, send an email and go to next PO (if there is one)
-                            # try:
-                            #     oos_message = short_wait.until(EC.presence_of_element_located((By.ID, 'oos_message')))
-                            #     if oos_message.is_displayed():
-                            #         print(f'SKU: {sku} is out of stock. Skipping order submission for PO: {po_num}.')
-                                    
-                            #         subject = f'FNET Items OOS'
-                            #         body = f'SKU: {sku} from PO: {po_num} in {file} is OOS.'
-                            #         send_email(subject, body)
+                            # add items to cart loop
+                            for item in order["items"]:
+                                sku = item["sku"]
+                                quantity = item["quantity"]
 
-                            #         oos_items = True
-                            #         break
-                            # except NoSuchElementException:
-                            #     pass
+                                print(f"searching for sku {sku}")
+                                search_input = long_wait_for_element(By.ID, "searchInput")
+                                time.sleep(2)
+                                search_input.clear()
+                                print('search input cleared')
+                                search_input.send_keys(sku)
+                                print(f'sku: {sku} searched')
+                                search_input.submit()
+                                print('search button clicked waiting for item page to load')
 
-                            if quantity > 1:
-                                print("inputting item quantity")
-                                plus_qty = driver.find_element(By.ID, "quantBox")
-                                plus_qty.clear()
-                                plus_qty.send_keys(quantity)
+                                long_wait.until(EC.presence_of_element_located((By.ID, "brandTitle")))
+                                print('found item title')
 
-                            print('adding item to cart')
-                            add_to_cart_button = short_wait_for_element(By.ID, "addBagButton")
-                            add_to_cart_button.click()
+                                if quantity > 1:
+                                    print("inputting item quantity")
+                                    plus_qty = driver.find_element(By.ID, "quantBox")
+                                    plus_qty.clear()
+                                    plus_qty.send_keys(quantity)
+
+                                print('adding item to cart')
+                                add_to_cart_button = short_wait_for_element(By.ID, "addBagButton")
+                                add_to_cart_button.click()
+                                time.sleep(1)
+                                print(f"Added {quantity} of {sku} to cart.")
+
+                            print(f"done attempting to add items for PO_num {po_num}")
+                            
+                            # checkout process
+                            print("navigating to checkout page")
+                            driver.get(os.getenv('CHECKOUT_PAGE_URL'))
+                            shipping_info = order["shipping_info"]
+
+                            short_wait_for_element(By.ID, 'shippingFields')
+
+                            # fill shipping info
+                            print('filling shipping info')
+                            fields = {
+                                'fname': shipping_info["fname"],
+                                'lname': shipping_info["lname"],
+                                'address1': shipping_info["address1"],
+                                'address2': shipping_info["address2"],
+                                'zip': shipping_info["zip"],
+                                'city': shipping_info["city"]
+                            }
+                            
+                            for field_id, value in fields.items():
+                                field = short_wait_for_element(By.ID, field_id)
+                                field.clear()
+                                field.send_keys(value)
+
+                            # state dropdown
+                            print('filling state')
+                            state_field = short_wait_for_element(By.ID, "ship_state_drop")
+                            state_select = Select(state_field)
+                            state_select.select_by_value(shipping_info["state"])
+
+                            # continue throgh checkout
+                            print('clicking continue to shipping button')
+                            continue_to_shipping_btn = short_wait_for_element(By.ID, "shippingProceedButton")
+                            continue_to_shipping_btn.click()
+
+                            time.sleep(2) # frequent fail point, adding wait
+
+                            print('selecting dropship shipping option')
+                            dropship_shipping_btn = driver.find_element(By.ID, "DSP")
+                            driver.execute_script("arguments[0].click();", dropship_shipping_btn)
+
+                            print('clicking continue to payment button')
+                            continue_to_payment_btn = short_wait_for_element(By.ID, "proceedCheckButton")
+                            continue_to_payment_btn.click()
+
+                            # payment iframes
+                            iframes = WebDriverWait(driver, 30).until(
+                                EC.presence_of_all_elements_located((By.CLASS_NAME, "js-iframe"))
+                            )
+                            time.sleep(2) #adding wait for slow site response point
+
+                            # fill payment info
+                            print('filling payment info')
+                            driver.switch_to.frame(iframes[0])
+                            card_field = long_wait_for_element(By.ID, "encryptedCardNumber")
+                            card_field.clear()
+                            card_field.send_keys(os.getenv('CC_NUM'))
+                            exit_iframe()
                             time.sleep(1)
-                            print(f"Added {quantity} of {sku} to cart.")
 
-                        # if oos_items:
-                        #     failed_orders.append((file, po_num, 'OOS items found, entire PO skipped'))
-                        #     continue
+                            driver.switch_to.frame(iframes[1])
+                            exp_field = short_wait_for_element(By.ID, "encryptedExpiryDate")
+                            exp_field.clear()
+                            exp_field.send_keys(os.getenv('CC_EXP_NUM'))
+                            exit_iframe()
+                            time.sleep(1)
 
-                        print(f"done attempting to add items for PO_num {po_num}")
-                        
-                        # checkout process
-                        print("navigating to checkout page")
-                        driver.get(os.getenv('CHECKOUT_PAGE_URL'))
-                        shipping_info = order["shipping_info"]
+                            driver.switch_to.frame(iframes[2])
+                            csv_field = short_wait_for_element(By.ID, "encryptedSecurityCode")
+                            csv_field.clear()
+                            csv_field.send_keys(os.getenv('CC_CSV'))
+                            exit_iframe()
+                            time.sleep(1)
 
-                        short_wait_for_element(By.ID, 'shippingFields')
+                            # submit order
+                            print('submitting order')
+                            submit_order_btn = short_wait_for_element(By.ID, "submitOrder")
+                            submit_order_btn.click()
+                            
+                            # verify order confirmation
+                            print("waiting for confirmation...")
+                            order_confirmation = WebDriverWait(driver, 30).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, "h2.panel-title"))
+                            )
+                            print(f"confirmation found: {order_confirmation.text}")
+                            print(f'PO_num {po_num} processed successfully')
+                            
+                            # add the order number to a google sheet for shipment tracking
+                            print('adding order info to google sheet')
+                            fnet_order_num = extract_order_number(order_confirmation.text)
 
-                        # fill shipping info
-                        print('filling shipping info')
-                        fields = {
-                            'fname': shipping_info["fname"],
-                            'lname': shipping_info["lname"],
-                            'address1': shipping_info["address1"],
-                            'address2': shipping_info["address2"],
-                            'zip': shipping_info["zip"],
-                            'city': shipping_info["city"]
-                        }
-                        
-                        for field_id, value in fields.items():
-                            field = short_wait_for_element(By.ID, field_id)
-                            field.clear()
-                            field.send_keys(value)
+                            if fnet_order_num:
+                                orders_to_update.append((po_num, fnet_order_num)) #add order info to batch
+                                print(f"order number extracted: {fnet_order_num} for PO: {po_num}")
+                            else:
+                                print('order number not found')
+                            
+                            # append file & po_num to success tracking
+                            successful_orders.append((file, po_num))
 
-                        # state dropdown
-                        print('filling state')
-                        state_field = short_wait_for_element(By.ID, "ship_state_drop")
-                        state_select = Select(state_field)
-                        state_select.select_by_value(shipping_info["state"])
+                            time.sleep(5)
 
-                        # continue throgh checkout
-                        print('clicking continue to shipping button')
-                        continue_to_shipping_btn = short_wait_for_element(By.ID, "shippingProceedButton")
-                        continue_to_shipping_btn.click()
+                        except Exception as e:
+                            failed_orders.append((file, po_num, str(e)))
+                            print(f"error processing order {po_num} from {file}: {e}")
 
-                        time.sleep(2) # frequent fail point, adding wait
-
-                        print('selecting dropship shipping option')
-                        dropship_shipping_btn = driver.find_element(By.ID, "DSP")
-                        driver.execute_script("arguments[0].click();", dropship_shipping_btn)
-
-                        print('clicking continue to payment button')
-                        continue_to_payment_btn = short_wait_for_element(By.ID, "proceedCheckButton")
-                        continue_to_payment_btn.click()
-
-                        # payment iframes
-                        iframes = WebDriverWait(driver, 30).until(
-                            EC.presence_of_all_elements_located((By.CLASS_NAME, "js-iframe"))
-                        )
-                        time.sleep(2) #adding wait for slow site response point
-
-                        # fill payment info
-                        print('filling payment info')
-                        driver.switch_to.frame(iframes[0])
-                        card_field = long_wait_for_element(By.ID, "encryptedCardNumber")
-                        card_field.clear()
-                        card_field.send_keys(os.getenv('CC_NUM'))
-                        exit_iframe()
-                        time.sleep(1)
-
-                        driver.switch_to.frame(iframes[1])
-                        exp_field = short_wait_for_element(By.ID, "encryptedExpiryDate")
-                        exp_field.clear()
-                        exp_field.send_keys(os.getenv('CC_EXP_NUM'))
-                        exit_iframe()
-                        time.sleep(1)
-
-                        driver.switch_to.frame(iframes[2])
-                        csv_field = short_wait_for_element(By.ID, "encryptedSecurityCode")
-                        csv_field.clear()
-                        csv_field.send_keys(os.getenv('CC_CSV'))
-                        exit_iframe()
-                        time.sleep(1)
-
-                        # submit order
-                        print('submitting order')
-                        submit_order_btn = short_wait_for_element(By.ID, "submitOrder")
-                        submit_order_btn.click()
-                        
-                        # verify order confirmation
-                        print("waiting for confirmation...")
-                        order_confirmation = WebDriverWait(driver, 30).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, "h2.panel-title"))
-                        )
-                        print(f"confirmation found: {order_confirmation.text}")
-                        print(f'PO_num {po_num} processed successfully')
-                        
-                        # add the order number to a google sheet for shipment tracking
-                        print('adding order info to google sheet')
-                        fnet_order_num = extract_order_number(order_confirmation.text)
-
-                        if fnet_order_num:
-                            # add_po_num_fnet_num_to_sheet(sheet, po_num, fnet_order_num, po_num_col=1, fnet_num_col=2)
-                            # print(f"order number extracted: {fnet_order_num} and added to sheet")
-                            orders_to_update.append((po_num, fnet_order_num)) #add order info to batch
-                            print(f"order number extracted: {fnet_order_num} for PO: {po_num}")
-                        else:
-                            print('order number not found')
-                        
-                        # append file & po_num to success tracking
-                        successful_orders.append((file, po_num))
-
-                        time.sleep(5)
-
-                    except Exception as e:
-                        failed_orders.append((file, po_num, str(e)))
-                        print(f"error processing order {po_num} from {file}: {e}")
+                    driver.quit() #reset the driver session to avoid resource limitations
+                    print('driver session closed for batch', i)
 
             except Exception as e:
                 print(f"error processing file {file}: {e}")
-
-        # close browser
-        driver.quit()
-        print("browser closed")
 
         if orders_to_update:
             batch_gsheet(sheet, orders_to_update)
@@ -302,34 +278,6 @@ def place_orders():
                 print(f"moved {file} to archive")
             except Exception as e:
                 print(f"failed to move {file}: {str(e)}")
-
-        # files_to_archive = []
-        # # determine which files were fully successful
-        # for file in downloaded_files:
-        #     if any(file == f for f, _, _ in failed_orders):
-        #         print(f"skipping FTP archiving for {file} due to failed orders.")
-        #     else:
-        #         files_to_archive.append(file)
-
-        # archive files locally
-        # for file in files_to_archive:
-        #     src = os.path.join(os.getenv('LOCAL_ORDERS_DIR'), file)
-        #     dst = os.path.join(archive_dir, file)
-        #     try:
-        #         shutil.move(src, dst)
-        #         print(f"moved {file} to local archive.")
-        #     except Exception as e:
-        #         print(f"failed to move {file}: {str(e)}")
-
-        # archive files on FTP only if they were fully successful
-        # ftp = connect_ftp()
-        # if ftp and files_to_archive:
-        #     try:
-        #         archive_files_on_ftp(ftp, files_to_archive)
-        #         print(f"archived files on FTP: {files_to_archive}")
-        #     finally:
-        #         ftp.quit()
-        #         print("FTP connection closed")
 
         # send summary email
         print('sending summary email')

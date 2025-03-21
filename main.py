@@ -24,11 +24,19 @@ def extract_order_number(confirmation_text):
         return match.group(1)
     else:
         return None
+    
+def batch_gsheet(sheet, orders):
+    start_row = len(sheet.get_all_values()) + 1
+    data = [[po_num, order_number] for po_num, order_number in orders]
+    end_row = start_row + len(data) - 1
+    cell_range = f"A{start_row}:B{end_row}"
+    sheet.update(cell_range, data)
 
 def place_orders():
     try:
         #setup sheets
         sheet = setup_google_sheets()
+        orders_to_update = []
 
         # track success/failure
         successful_orders = []
@@ -263,9 +271,12 @@ def place_orders():
                         # add the order number to a google sheet for shipment tracking
                         print('adding order info to google sheet')
                         fnet_order_num = extract_order_number(order_confirmation.text)
+
                         if fnet_order_num:
-                            add_po_num_fnet_num_to_sheet(sheet, po_num, fnet_order_num, po_num_col=1, fnet_num_col=2)
-                            print(f"order number extracted: {fnet_order_num} and added to sheet")
+                            # add_po_num_fnet_num_to_sheet(sheet, po_num, fnet_order_num, po_num_col=1, fnet_num_col=2)
+                            # print(f"order number extracted: {fnet_order_num} and added to sheet")
+                            orders_to_update.append((po_num, fnet_order_num)) #add order info to batch
+                            print(f"order number extracted: {fnet_order_num} for PO: {po_num}")
                         else:
                             print('order number not found')
                         
@@ -284,6 +295,10 @@ def place_orders():
         # close browser
         driver.quit()
         print("browser closed")
+
+        if orders_to_update:
+            batch_gsheet(sheet, orders_to_update)
+            print('added all batched orders to sheet')
 
         # archive the order files
         for file in downloaded_files:
@@ -327,8 +342,6 @@ def place_orders():
         print('sending summary email')
         subject = "FNET Order Summary"
         successful_msg = ', '.join(f'{po_num} ({f})' for f, po_num in successful_orders) if successful_orders else "None"
-        # failed_msg = ', '.join(f'{po_num} ({f}): {e}' for f, po_num, e in failed_orders) if failed_orders else "None"
-        # failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num in failed_orders) if failed_orders else "None"
         failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num, _ in failed_orders) if failed_orders else "None"
 
 

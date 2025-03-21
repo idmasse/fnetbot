@@ -13,7 +13,7 @@ from utils.selenium_setup import get_driver
 from login import fnet_login
 from scrape_tracking import scrape_tracking
 from utils.email_utils import send_email
-from utils.gsheet_setup import setup_google_sheets, add_po_num_fnet_num_to_sheet, batch_gsheet
+from utils.gsheet_setup import setup_google_sheets, batch_gsheet
 import re
 
 load_dotenv()
@@ -91,8 +91,10 @@ def place_orders():
                         "quantity": int(row["Qty"])
                     })
 
-                batch_size = 20
+                batch_size = 15
                 orders = list(grouped_orders.items())
+                po_nums = [po for po, details in orders]
+                print(f'batched orders: {po_nums}')
 
                 for i in range(0, len(orders), batch_size):
                     driver = get_driver()
@@ -241,7 +243,7 @@ def place_orders():
                             print(f'PO_num {po_num} processed successfully')
                             
                             # add the order number to a google sheet for shipment tracking
-                            print('adding order info to google sheet')
+                            print('adding order info to batch for google sheet')
                             fnet_order_num = extract_order_number(order_confirmation.text)
 
                             if fnet_order_num:
@@ -267,7 +269,7 @@ def place_orders():
 
         if orders_to_update:
             batch_gsheet(sheet, orders_to_update)
-            print('added all batched orders to sheet')
+            print('successfully added all batched orders to google sheet')
 
         # archive the order files
         for file in downloaded_files:

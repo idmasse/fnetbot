@@ -16,3 +16,10 @@ def add_po_num_fnet_num_to_sheet(sheet, po_num, order_number, po_num_col=1, fnet
     # Update the specific columns with values
     sheet.update_cell(next_row, po_num_col, po_num)
     sheet.update_cell(next_row, fnet_num_col, order_number)
+
+def batch_gsheet(sheet, orders):
+    start_row = len(sheet.get_all_values()) + 1
+    data = [[po_num, order_number] for po_num, order_number in orders]
+    end_row = start_row + len(data) - 1
+    cell_range = f"A{start_row}:B{end_row}"
+    sheet.update(cell_range, data)

@@ -13,7 +13,7 @@ from utils.selenium_setup import get_driver
 from login import fnet_login
 from scrape_tracking import scrape_tracking
 from utils.email_utils import send_email
-from utils.gsheet_setup import setup_google_sheets, add_po_num_fnet_num_to_sheet
+from utils.gsheet_setup import setup_google_sheets, add_po_num_fnet_num_to_sheet, batch_gsheet
 import re
 
 load_dotenv()
@@ -25,13 +25,6 @@ def extract_order_number(confirmation_text):
     else:
         return None
     
-def batch_gsheet(sheet, orders):
-    start_row = len(sheet.get_all_values()) + 1
-    data = [[po_num, order_number] for po_num, order_number in orders]
-    end_row = start_row + len(data) - 1
-    cell_range = f"A{start_row}:B{end_row}"
-    sheet.update(cell_range, data)
-
 def place_orders():
     try:
         #setup sheets
@@ -343,7 +336,6 @@ def place_orders():
         subject = "FNET Order Summary"
         successful_msg = ', '.join(f'{po_num} ({f})' for f, po_num in successful_orders) if successful_orders else "None"
         failed_msg = ', '.join(f'{po_num} ({f})' for f, po_num, _ in failed_orders) if failed_orders else "None"
-
 
         body = f"""
         Successful orders: {len(successful_orders)}

@@ -243,14 +243,13 @@ def place_orders():
                             print(f'PO_num {po_num} processed successfully')
                             
                             # add the order number to a google sheet for shipment tracking
-                            print('adding order info to batch for google sheet')
                             fnet_order_num = extract_order_number(order_confirmation.text)
-
+                            print(f"extracted fnet order number: {fnet_order_num} for PO: {po_num}")
                             if fnet_order_num:
                                 orders_to_update.append((po_num, fnet_order_num)) #add order info to batch
-                                print(f"order number extracted: {fnet_order_num} for PO: {po_num}")
+                                print('added fnet order number and PO number to gsheet batch')
                             else:
-                                print('order number not found')
+                                print('fnet order number not found')
                             
                             # append file & po_num to success tracking
                             successful_orders.append((file, po_num))
